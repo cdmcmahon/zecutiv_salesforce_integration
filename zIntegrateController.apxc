@@ -1,0 +1,95 @@
+public with sharing class zIntegrateController {
+  /* *******************************************
+    *
+    *    Properties
+    *
+    ********************************************** */
+    
+    public String zctvPassword {
+        get{
+            String password = [Select Zecutiv_Password__c From User Where Id = :UserInfo.getUserId()][0].Zecutiv_Password__c;
+            return password;
+        }         
+    }
+    
+    public List<SelectOption> yearOptions { 
+        get{
+            if (yearOptions == null) {
+                yearOptions = new List<SelectOption>();
+                for(Integer i = 0; i < 20; i++){ 
+                    yearOptions.add(new SelectOption((Date.today().year()-i).format().remove(','),(Date.today().year()-i).format().remove(',')));  
+                }
+            }
+            return yearOptions;
+        }
+        
+        set; 
+    }
+
+    public List<SelectOption> monthOptions { 
+        get { 
+            if (monthOptions == null) {
+                monthOptions = new List<SelectOption>();
+                monthOptions.add(new SelectOption('01','January'));
+                monthOptions.add(new SelectOption('02','February'));
+                monthOptions.add(new SelectOption('03','March'));
+                monthOptions.add(new selectOption('04','April'));
+                monthOptions.add(new selectOption('05','May'));
+                monthOptions.add(new selectOption('06','June'));
+                monthOptions.add(new SelectOption('07','July'));
+                monthOptions.add(new SelectOption('08','August'));
+                monthOptions.add(new SelectOption('09','September'));
+                monthOptions.add(new selectOption('10','October'));
+                monthOptions.add(new selectOption('11','November'));
+                monthOptions.add(new selectOption('12','December'));
+            }
+            return monthOptions;
+        }
+        
+        set;
+    }
+
+    public string selectedMonth { 
+        get {
+            if (selectedMonth == null) { 
+                selectedMonth = '01'; 
+            } return selectedMonth;
+        }
+        set; 
+    }
+    
+    public string selectedMonthName {
+        get{
+            return selectedMonthName = monthOptions[Integer.valueOf(selectedMonth) - 1].getLabel();
+        }
+        set;
+    }
+    
+    
+    public string selectedYear {
+        get {
+            if (selectedYear == null) { selectedYear = Date.today().year().format().remove(','); }
+            return selectedYear;
+        }
+        set;
+    }
+    
+    public Double selectedMonthSum {
+        get{
+            
+            selectedMonthSum = (Double)groupedResult[0].get('sum') != null ? (Double)groupedResult[0].get('sum') : 0.00;
+            return selectedMonthSum;
+        }
+        set;
+    }
+
+    public List<Opportunity> Opps {get; set;} 
+    
+    private List<AggregateResult> groupedResult {
+        get{
+            groupedResult = [select Sum(Amount) sum from Opportunity where IsClosed=TRUE and IsWon=TRUE and CALENDAR_MONTH(CloseDate) = :Integer.valueOf(selectedMonth) and CALENDAR_YEAR(CloseDate) = :Integer.valueOf(selectedYear)]; 
+            return groupedResult;
+        }
+        set;
+    }
+}

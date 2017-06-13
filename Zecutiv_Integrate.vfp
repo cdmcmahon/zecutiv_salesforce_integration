@@ -1,0 +1,125 @@
+<apex:page controller="zIntegrateController" >
+    <apex:form >
+        <apex:pageBlock title="Opportunities Closed Won (Monthly)"> 
+            
+            
+            <apex:pageBlockButtons location="bottom" >
+                <apex:outputPanel id="submitButtons">
+                    <button form="zctvForm" type="submit" onClick="createEntryInZecutiv({!selectedMonth}, {!selectedYear}, {!selectedMonthSum});">
+                        Post to Zecutiv
+                    </button>
+                </apex:outputPanel>
+            </apex:pageBlockButtons>
+            
+            
+            <apex:pageBlockSection title="Select Month and Year" collapsible="false">
+                <apex:pageBlockSectionItem >
+                    <apex:outputLabel value="Close Date Month " />
+                    <apex:selectList value="{!selectedMonth}" size="1" >
+                        <apex:actionSupport event="onchange" 
+                                            reRender="submitButtons,oppSumRegion"
+                                            status="status"/>
+                        <apex:selectOptions value="{!monthOptions}" />
+                    </apex:selectList>
+
+                </apex:pageBlockSectionItem>
+                <apex:pageBlockSectionItem >
+                    <apex:outputLabel value="Close Date Year " />
+                    <apex:selectList value="{!selectedYear}" size="1" >
+                        <apex:actionSupport event="onchange" 
+                                            reRender="oppSumRegion,submitButtons"
+                                            status="status"/>
+                        <apex:selectOptions value="{!yearOptions}" />
+                    </apex:selectList>
+                </apex:pageBlockSectionItem>
+            
+            </apex:pageBlockSection>
+
+            <apex:pageBlockSection title="Closed Won Summary for {!selectedMonthName}, {!selectedYear}" id="oppSumRegion" collapsible="false">
+                <apex:outputText value="{!selectedMonth}" label="Selected Month" id="selectedMonth"/>
+                <apex:outputText value="{!selectedYear}" label="Selected Year" id="selectedYear"/>
+                <apex:outputText value="{!selectedMonthSum}" label="Total Amount" id="totalAmount"/>
+            </apex:pageBlockSection>
+            
+            <apex:pageBlockSection title="Select Zecutiv Metric" id="zctvMetricInfo">
+                <apex:pageBlockSectionItem id="zctvMetricItem">
+                    <apex:outputLabel value="Metric " />
+                    <div id="zctvDropdownContainer">
+                        <!-- our dropdown will go here -->
+                    </div>
+                </apex:pageBlockSectionItem>
+            </apex:pageBlockSection>
+
+            <div id="responseSection" />
+             
+        </apex:pageBlock> 
+    </apex:form>
+    
+    <apex:include pageName="Zctv" />
+    <script>
+        var graphQLQuery = '{ metrics { edges { node { id, name } } } }';
+        var username = "{!$User.Zecutiv_Username__c}";
+        var password = "{!zctvPassword}";
+        console.log(username, password);
+
+        zapiGraphQLPost(graphQLQuery, username, password)
+        .then(function(response) {
+        
+            // obtain metrics from http response
+            var metrics = response.data.data.metrics.edges.map(function(edge) { return edge.node; });
+            console.log(metrics);
+        
+            // Create dropdown and place it on the page
+            var dropdownContainer = document.getElementById('zctvDropdownContainer');
+            var dropdownHTML = '<select id="zctvMetrics">';
+            metrics.forEach(function(metric) {
+                dropdownHTML += '<option value="' + metric.id + '">' + metric.name + '</metric>';
+            });
+            dropdownHTML += '</select>';
+            dropdownContainer.innerHTML = dropdownHTML;
+        })
+        .catch(function(err) {
+            console.log('err', err);
+        });
+    </script>
+    
+    <script>
+    function createEntryInZecutiv(selectedMonth, selectedYear, selectedMonthSum) {
+        // Clear old results
+        document.getElementById('responseSection').innerHTML = '';
+        
+        // Get zctv metric id from our dropdown
+        try {
+            
+            var zctvMetrics = document.getElementById('zctvMetrics')
+            var zctvMetricId = zctvMetrics.options[zctvMetrics.selectedIndex].value;
+            
+            if (!zctvMetricId) {
+                throw new Error();
+            }
+         } catch(err) {
+             alert('You must select a Zecutiv Metric');
+             return;
+         }
+        
+        // construct period start date
+        var periodStartDate = String(selectedYear) + (selectedMonth < 10 ? '0' : '') + String(selectedMonth) + '01';
+        
+        // Make out graphql payload body
+        var graphQLQuery = 'mutation { upsertMetricPeriodData( metricPeriodData: { metricId: "' + zctvMetricId 
+        + '", periodStartDate: "' + periodStartDate + '", entryValue: ' + selectedMonthSum + ' } ) { metricId } }';
+    
+        var username = "{!$User.Zecutiv_Username__c}";
+        var password = "{!zctvPassword}";
+        
+        zapiGraphQLPost(graphQLQuery, username, password)
+        .then(function(result) {
+            document.getElementById('responseSection').innerHTML = '<h1>Results</h1><p>Your post was a success!</p>';
+        })
+        .catch(function(err) {
+            document.getElementById('responseSection').innerHTML = '<h1>Results</h1><p>An error occurred:</p><p>' + err + '</p>';
+        });
+    }
+    </script>
+        
+</apex:page>
